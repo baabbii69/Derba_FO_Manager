@@ -84,7 +84,7 @@ class DrvEmergecyContact(models.Model):
 
 
 class DrvLicence(models.Model):
-    driverID = models.ForeignKey(Driver, on_delete=models.CASCADE, null=True, blank=True)
+    driverID = models.OneToOneField(Driver, related_name='licence', on_delete=models.CASCADE, null=True, blank=True)
     drvLicenceNumber = models.CharField(max_length=255)
     drvLicenceAuthority = models.CharField(max_length=255)
     drvLicenceIssueDate = models.DateField()
@@ -136,7 +136,7 @@ class Trailer(models.Model):
 
 
 class DrvPassport(models.Model):
-    DrvId = models.ForeignKey(Driver, on_delete=models.CASCADE)
+    DrvId = models.OneToOneField(Driver, related_name='passport', on_delete=models.CASCADE)
     UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     drvPassportNo = models.CharField(max_length=255)
     drvPassportIssuanceDate = models.DateField()
@@ -154,9 +154,10 @@ class CustomerContact(models.Model):
 
 
 class Customer(models.Model):
+    cmrName = models.CharField(max_length=255)
     cmrTIN = models.CharField(max_length=255)
     cmrAddress = models.CharField(max_length=255)
-    cmrPhone = models.CharField(max_length=20)  # Assuming phone numbers are stored as strings
+    cmrPhone = models.CharField(max_length=20)
     cmrCode = models.CharField(max_length=255)
     contactID = models.ForeignKey(CustomerContact, on_delete=models.CASCADE)
     UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
@@ -190,6 +191,9 @@ class BaTrip(models.Model):
     trpUltr = models.IntegerField()
     UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
+    def __str__(self):
+        return self.trpRouteName
+
 
 class DjboutiPass(models.Model):
     DrvId = models.ForeignKey(Driver, on_delete=models.CASCADE)
@@ -216,13 +220,19 @@ class AaFleetNo(models.Model):
     fltEnginePower = models.IntegerField()
     UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
+    def __str__(self):
+        return self.fltFleetNo
+
 
 class AbTruck(models.Model):
     FltId = models.ForeignKey(AaFleetNo, on_delete=models.CASCADE)
-    DrvId = models.ForeignKey(Driver, on_delete=models.CASCADE)
+    DrvId = models.ForeignKey(Driver, on_delete=models.CASCADE, null=True)
     TrlId = models.ForeignKey(Trailer, on_delete=models.CASCADE)
     UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     trkActive = models.BooleanField()
+
+    def __str__(self):
+        return f'{self.FltId} : {self.TrlId}'
 
 
 class DbFuelStn(models.Model):
@@ -235,8 +245,9 @@ class CaFO(models.Model):
     TrpId = models.ForeignKey(BaTrip, on_delete=models.CASCADE)
     MtrId = models.ForeignKey(BbMtrl, on_delete=models.CASCADE)
     CustomerID = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    ShipmentCode = models.CharField(max_length=255)
     UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
-    foNo = models.IntegerField()
+    foNo = models.CharField(max_length=25)
     foDate = models.DateField()
     foTime = models.TimeField()
     foOpenKm = models.IntegerField()
@@ -247,13 +258,24 @@ class CaFO(models.Model):
     foMtrQuantity = models.DecimalField(max_digits=10, decimal_places=2)
     foWbNo = models.CharField(max_length=255)
     foWbBill = models.CharField(max_length=255)
-    foFuelLock = models.BooleanField()
-    foPerdiumLock = models.BooleanField()
-    foAdvanceLock = models.BooleanField()
+    foFuelLock = models.BooleanField(default=False)
+    foPerdiumLock = models.BooleanField(default=False)
+    foAdvanceLock = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f'{self.foNo}'
+
+    def save(self, *args, **kwargs):
+        # Set the ShipmentCode based on the given format (foNo - cmrcode - last two digits of the year)
+        if not self.ShipmentCode:
+            customer_code = self.CustomerID.cmrCode if self.CustomerID else ''
+            year_last_digits = str(self.foDate.year)[-2:]
+            self.ShipmentCode = f"{self.foNo}-{customer_code}-{year_last_digits}"
+        super().save(*args, **kwargs)
 
 
 class DaFuel(models.Model):
-    FoId = models.ForeignKey(CaFO, on_delete=models.CASCADE)
+    FoId = models.ForeignKey(CaFO, on_delete=models.CASCADE, null=True)
     UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     fuelStationID = models.IntegerField()
     fuelPmtType = models.CharField(max_length=255)

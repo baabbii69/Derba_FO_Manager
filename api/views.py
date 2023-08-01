@@ -1,106 +1,147 @@
+from django.shortcuts import get_object_or_404
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.viewsets import ModelViewSet
+from .serializers import *
+from .models import *
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.viewsets import ModelViewSet
-
-from .models import *
-from .serializers import *
 
 
 class DriverViewSet(ModelViewSet):
     queryset = Driver.objects.all()
     serializer_class = DriverSerializer
 
-    def retrieve(self, request, pk=None):
-        if pk is not None:
-            try:
-                driver = Driver.objects.get(pk=pk)
-                driver_serializer = DriverSerializer(driver)
-                emergency_contact = DrvEmergecyContact.objects.get(driverID=driver)
-                emergency_contact_serializer = DrvEmergencyContactSerializer(emergency_contact)
-                licence = DrvLicence.objects.get(driverID=driver)
-                licence_serializer = DrvLicenceSerializer(licence)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-                data = {
-                    'driver': driver_serializer.data,
-                    'emergency_contact': emergency_contact_serializer.data,
-                    'licence': licence_serializer.data
-                }
-                return Response(data)
-            except Driver.DoesNotExist:
-                return Response({'error': 'Driver not found'}, status=status.HTTP_404_NOT_FOUND)
-            except (DrvEmergecyContact.DoesNotExist, DrvLicence.DoesNotExist):
-                return Response({'error': 'Driver information not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        drivers = Driver.objects.all()
-        serializer = DriverSerializer(drivers, many=True)
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(serializer.data)
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DrvEmergecyContactViewSet(ModelViewSet):
+    queryset = DrvEmergecyContact.objects.all()
+    serializer_class = DrvEmergencyContactSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DrvLicenceViewSet(ModelViewSet):
+    queryset = DrvLicence.objects.all()
+    serializer_class = DrvLicenceSerializer
+
     def create(self, request):
-        driver_serializer = DriverSerializer(data=request.data['driver'])
-        emergency_contact_serializer = DrvEmergencyContactSerializer()
-        licence_serializer = DrvLicenceSerializer()
+        drv_id = request.data.get('driverID', None)
+        drv_licence_exists = DrvLicence.objects.filter(driverID=drv_id).exists()
 
-        if driver_serializer.is_valid():
-            driver = driver_serializer.save()
-            emergency_contact_serializer = DrvEmergencyContactSerializer(data=request.data['emergency_contact'])
-            licence_serializer = DrvLicenceSerializer(data=request.data['licence'])
+        if drv_licence_exists:
+            return Response({'error': 'Driver already has a licence. if there is new information try updating the '
+                                      'registered  licence of the driver!'},
+                            status=status.HTTP_409_CONFLICT)
 
-            if emergency_contact_serializer.is_valid() and licence_serializer.is_valid():
-                emergency_contact = emergency_contact_serializer.save(driverID=driver, fkUserId=request.user.id)
-                licence = licence_serializer.save(driverID=driver, fkUserId=request.user.id)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
 
-                return Response({
-                    'driver': driver_serializer.data,
-                    'emergency_contact': emergency_contact_serializer.data,
-                    'licence': licence_serializer.data
-                }, status=status.HTTP_201_CREATED)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        errors = {}
-        errors.update(driver_serializer.errors)
-        errors.update(emergency_contact_serializer.errors)
-        errors.update(licence_serializer.errors)
-        return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
-    def update(self, request, pk=None):
-        try:
-            driver = Driver.objects.get(pk=pk)
-            emergency_contact = DrvEmergecyContact.objects.get(driverID=driver)
-            licence = DrvLicence.objects.get(driverID=driver)
-        except Driver.DoesNotExist:
-            return Response({'error': 'Driver not found'}, status=status.HTTP_404_NOT_FOUND)
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
-        driver_serializer = DriverSerializer(driver, data=request.data.get('driver'))
-        emergency_contact_serializer = DrvEmergencyContactSerializer(emergency_contact,
-                                                                    data=request.data.get('emergency_contact'))
-        licence_serializer = DrvLicenceSerializer(licence, data=request.data.get('licence'))
 
-        if driver_serializer.is_valid() and emergency_contact_serializer.is_valid() and licence_serializer.is_valid():
-            driver_serializer.save()
-            emergency_contact_serializer.save()
-            licence_serializer.save()
-            return Response(driver_serializer.data)
-        else:
-            return Response({
-                'driver_errors': driver_serializer.errors,
-                'emergency_contact_errors': emergency_contact_serializer.errors,
-                'licence_errors': licence_serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
+class DrvLeaveViewSet(ModelViewSet):
+    queryset = DrvLeave.objects.all()
+    serializer_class = DrvLeaveSerializer
 
-    def destroy(self, request, pk=None):
-        try:
-            driver = self.get_object()
-            emergency_contact = DrvEmergecyContact.objects.get(driverID=driver)
-            licence = DrvLicence.objects.get(driverID=driver)
-        except Driver.DoesNotExist:
-            return Response({'error': 'Driver not found'}, status=status.HTTP_404_NOT_FOUND)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        driver.delete()
-        emergency_contact.delete()
-        licence.delete()
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DrvPassportViewSet(ModelViewSet):
+    queryset = DrvPassport.objects.all()
+    serializer_class = DrvPassportSerializer
+
+    def create(self, request):
+        drv_id = request.data.get('DrvId', None)
+        drv_licence_exists = DrvPassport.objects.filter(DrvId=drv_id).exists()
+
+        if drv_licence_exists:
+            return Response({'error': 'Driver already has a Passport. if there is new information try updating the '
+                                      'registered  Passport of the driver!'},
+                            status=status.HTTP_409_CONFLICT)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -143,3 +184,375 @@ class TrailerViewSet(ModelViewSet):
 
         trailer.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class FleetNoViewSet(ModelViewSet):
+    queryset = AaFleetNo.objects.all()
+    serializer_class = AaFleetNoSerializer
+
+    def retrieve(self, request, pk=None):
+        if pk is not None:
+            try:
+                fleet = AaFleetNo.objects.get(pk=pk)
+                fleet_serializer = AaFleetNoSerializer(fleet)
+
+                return Response(fleet_serializer.data)
+            except AaFleetNo.DoesNotExist:
+                return Response({'error': 'Driver not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        fleet = AaFleetNo.objects.all()
+        serializer = AaFleetNoSerializer(fleet, many=True)
+        return Response(serializer.data)
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            flt_id = serializer.validated_data['fltFleetNo']
+            plt_id = serializer.validated_data['fltPlateNo']
+
+            # Check if a Truck with the same TrlId, DrvId, and FltId already exists
+            if AaFleetNo.objects.filter(fltPlateNo=plt_id, fltFleetNo=flt_id).exists():
+                raise ValidationError("A Fleet with the same Plate Number and Fleet Number already exists.")
+
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, pk=None):
+        try:
+            fleet = self.get_object()
+        except AaFleetNo.DoesNotExist:
+            return Response({'error': 'Fleet not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(fleet, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, pk=None):
+        try:
+            fleet = self.get_object()
+        except AaFleetNo.DoesNotExist:
+            return Response({'error': 'Fleet not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        fleet.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AbTruckViewSet(ModelViewSet):
+    queryset = AbTruck.objects.all()
+    serializer_class = AbTruckSerializer
+
+    def retrieve(self, request, pk=None):
+        if pk is not None:
+            try:
+                truck = AbTruck.objects.get(pk=pk)
+                truck_serializer = AbTruckSerializer(truck)
+
+                return Response(truck_serializer.data)
+            except AbTruck.DoesNotExist:
+                return Response({'error': 'Truck not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        truck = AbTruck.objects.all()
+        serializer = AbTruckSerializer(truck, many=True)
+        return Response(serializer.data)
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            trl_id = serializer.validated_data['TrlId']
+            drv_id = serializer.validated_data['DrvId']
+            flt_id = serializer.validated_data['FltId']
+
+            # Check if a Truck with the same TrlId, DrvId, and FltId already exists
+            if AbTruck.objects.filter(TrlId=trl_id, DrvId=drv_id, FltId=flt_id).exists():
+                raise ValidationError("A Truck with the same TrlId, DrvId, and FltId already exists.")
+
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BaTripViewSet(ModelViewSet):
+    queryset = BaTrip.objects.all()
+    serializer_class = BaTripSerializer
+
+    def retrieve(self, request, pk=None):
+        if pk is not None:
+            try:
+                trip = BaTrip.objects.get(pk=pk)
+                trip_serializer = BaTripSerializer(trip)
+
+                return Response(trip_serializer.data)
+            except AbTruck.DoesNotExist:
+                return Response({'error': 'trip not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        trip = BaTrip.objects.all()
+        serializer = BaTripSerializer(trip, many=True)
+        return Response(serializer.data)
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(UserId=request.user.id)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, pk=None):
+        try:
+            trip = self.get_object()
+        except BaTrip.DoesNotExist:
+            return Response({'error': 'Fleet not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(trip, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, pk=None):
+        try:
+            trip = self.get_object()
+        except BaTrip.DoesNotExist:
+            return Response({'error': 'Trip not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        trip.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class EbAdvanceViewSet(ModelViewSet):
+    queryset = EbAdvance.objects.all()
+    serializer_class = EbAdvanceSerializer
+
+    def retrieve(self, request, pk=None):
+        if pk is not None:
+            try:
+                advance = EbAdvance.objects.get(pk=pk)
+                advance_serializer = EbAdvanceSerializer(advance)
+
+                return Response(advance_serializer.data)
+            except AbTruck.DoesNotExist:
+                return Response({'error': 'Advance not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        advance = EbAdvance.objects.all()
+        serializer = EbAdvanceSerializer(advance, many=True)
+        return Response(serializer.data)
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(UserId=request.user.id)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, pk=None):
+        try:
+            advance = self.get_object()
+        except EbAdvance.DoesNotExist:
+            return Response({'error': 'Trip not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        advance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CaFOViewSet(ModelViewSet):
+    queryset = CaFO.objects.all()
+    serializer_class = CaFOSerializer
+
+    def retrieve(self, request, pk=None):
+        if pk is not None:
+            try:
+                fo = CaFO.objects.get(pk=pk)
+                fo_serializer = CaFOSerializer(fo)
+
+                return Response(fo_serializer.data)
+            except CaFO.DoesNotExist:
+                return Response({'error': 'FO not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        fo = CaFO.objects.all()
+        serializer = CaFOSerializer(fo, many=True)
+        return Response(serializer.data)
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(UserId=request.user.id)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, pk=None):
+        try:
+            fo = self.get_object()
+        except CaFO.DoesNotExist:
+            return Response({'error': 'FO not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(fo, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, pk=None):
+        try:
+            fo = self.get_object()
+        except CaFO.DoesNotExist:
+            return Response({'error': 'FO not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        fo.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(methods=['patch'], detail=True)
+    def update_fo_fuel_lock(self, request, pk=None):
+        return self._update_lock(request, pk, 'foFuelLock')
+
+    @action(methods=['patch'], detail=True)
+    def update_fo_perdium_lock(self, request, pk=None):
+        return self._update_lock(request, pk, 'foPerdiumLock')
+
+    @action(methods=['patch'], detail=True)
+    def update_fo_advance_lock(self, request, pk=None):
+        return self._update_lock(request, pk, 'foAdvanceLock')
+
+    def _update_lock(self, request, pk, field_name):
+        try:
+            cafo = self.get_object()
+        except CaFO.DoesNotExist:
+            return Response({'error': 'FO not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        field_value = request.data.get(field_name, None)
+        if field_value is not None:
+            setattr(cafo, field_name, field_value)
+            cafo.save()
+
+            serializer = self.get_serializer(cafo)
+            return Response(serializer.data)
+
+        return Response({f'error': f'{field_name} value is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DaFuelViewSet(ModelViewSet):
+    queryset = DaFuel.objects.all()
+    serializer_class = DaFuelSerializer
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            fo = serializer.validated_data['FoId']
+            try:
+                foo = CaFO.objects.filter(foNo=fo)
+                for fo in foo:
+                    FuelLock = fo.foFuelLock
+            except CaFO.DoesNotExist:
+                return Response({'error': 'FO not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            if not FuelLock:
+                serializer.save(UserId=request.user.id)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response({'error': 'Someone is Working Fuel for this FO'}, status=status.HTTP_409_CONFLICT)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EaPerdiuemViewSet(ModelViewSet):
+    queryset = EaPerdiuem.objects.all()
+    serializer_class = EaPerdiuemSerializer
+
+    # def create(self, request):
+    #     serializer = self.get_serializer(data=request.data)
+    #     fo = serializer.validated_data['FoId']
+    #     try:
+    #         foo = CaFO.objects.filter(FoId=fo)
+    #         fuel = DaFuel.objects.filter(FoId=fo)
+    #     except CaFO.DoesNotExist:
+    #         return Response({'error': 'FO not found'}, status=status.HTTP_404_NOT_FOUND)
+    #
+    #     if fuel is not None:
+    #         if not foo.foPerdiumLock:
+    #             if serializer.is_valid():
+    #                 serializer.save(UserId=request.user.id)
+    #                 return Response(serializer.data, status=status.HTTP_201_CREATED)
+    #             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    #         return Response({'error': 'Someone is Working Fuel for this FO'}, status=status.HTTP_409_CONFLICT)
+    #     else:
+    #         return Response({'error': 'You have to do Fuel 1st'}, status=status.HTTP_400_BAD_REQUEST)
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            fo = serializer.validated_data['FoId']
+            try:
+                foo = CaFO.objects.filter(foNo=fo)
+                for fo in foo:
+                    PerdiumLock = fo.foPerdiumLock
+                    fid = fo.id
+                fuel = DaFuel.objects.filter(FoId=fid)
+                print(fuel)
+                print(fid)
+            except CaFO.DoesNotExist:
+                return Response({'error': 'FO not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            if fuel:
+                if not PerdiumLock:
+                    serializer.save(UserId=request.user.id)
+                    return Response(serializer.data, status=status.HTTP_201_CREATED)
+                return Response({'error': 'Someone is Working Fuel for this FO'}, status=status.HTTP_409_CONFLICT)
+            else:
+                return Response({'error': 'You have to do Fuel 1st'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class FaStsViewSet(ModelViewSet):
+    queryset = FaSts.objects.all()
+    serializer_class = FaStsSerializer
+
+
+class FltBoloViewSet(ModelViewSet):
+    queryset = FltBolo.objects.all()
+    serializer_class = FltBoloSerializer
+
+
+class TRLBoloViewSet(ModelViewSet):
+    queryset = TRLBolo.objects.all()
+    serializer_class = TRLBoloSerializer
+
+
+class FltComesaViewSet(ModelViewSet):
+    queryset = FltComesa.objects.all()
+    serializer_class = FltComesaSerializer
+
+
+class TRLComesaViewSet(ModelViewSet):
+    queryset = TRLComesa.objects.all()
+    serializer_class = TRLComesaSerializer
+
+
+class FltInsuranceViewSet(ModelViewSet):
+    queryset = FltInsurance.objects.all()
+    serializer_class = FltInsuranceSerializer
+
+
+class TRLInsuranceViewSet(ModelViewSet):
+    queryset = TRLInsurance.objects.all()
+    serializer_class = TRLInsuranceSerializer
+
+
+class FltThirdPartyViewSet(ModelViewSet):
+    queryset = FltThirdParty.objects.all()
+    serializer_class = FltThirdPartySerializer
+
+
+class TRLThirdPartyViewSet(ModelViewSet):
+    queryset = TRLThirdParty.objects.all()
+    serializer_class = TRLThirdPartySerializer
+
+
+class TyerNewViewSet(ModelViewSet):
+    queryset = TyerNew.objects.all()
+    serializer_class = TyerNewSerializer
+
+
+class TyerReturnViewSet(ModelViewSet):
+    queryset = TyerReturn.objects.all()
+    serializer_class = TyerReturnSerializer

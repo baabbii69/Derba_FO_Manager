@@ -123,6 +123,7 @@ class CaFOSerializer(serializers.ModelSerializer):
     class Meta:
         model = CaFO
         fields = '__all__'
+        read_only_fields = ['ShipmentCode']
 
 
 class DaFuelSerializer(serializers.ModelSerializer):
