@@ -4,6 +4,7 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.conf import settings
 import random
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 
 class UserAccountManager(BaseUserManager):
@@ -54,6 +55,31 @@ class UserAccount(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = ['first_name', 'last_name']
 
 
+class UserActivity(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True
+    )
+    activity_type = models.CharField(max_length=255)
+    url = models.CharField(max_length=255)
+    method = models.CharField(max_length=10)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.action}"
+
+
+class UserActionLog(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True
+    )
+    action = models.CharField(max_length=255)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+
 class Driver(models.Model):
     driver_name = models.CharField(max_length=255)
     phone = models.CharField(max_length=255)
@@ -65,6 +91,7 @@ class Driver(models.Model):
     is_active = models.BooleanField(default=False)
     employment_status = models.CharField(max_length=255)
     note_on_driver = models.TextField(max_length=255, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return self.driver_name
@@ -114,6 +141,7 @@ class DrvLeave(models.Model):
 
 class Condition(models.Model):
     condition = models.CharField(max_length=255)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return self.condition
@@ -130,6 +158,7 @@ class Trailer(models.Model):
     remarks = models.TextField(max_length=255, null=True, blank=True)
     trailer_model = models.CharField(max_length=255)
     driver = models.ForeignKey(Driver, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return self.fleet_number
@@ -137,17 +166,17 @@ class Trailer(models.Model):
 
 class DrvPassport(models.Model):
     DrvId = models.OneToOneField(Driver, related_name='passport', on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     drvPassportNo = models.CharField(max_length=255)
     drvPassportIssuanceDate = models.DateField()
     drvPassportExpireDate = models.DateField()
     drvPassportActiveStatus = models.BooleanField()
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
 
 class CustomerContact(models.Model):
     cntName = models.CharField(max_length=255)
     cntPhone = models.CharField(max_length=20)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return self.cntName
@@ -160,11 +189,11 @@ class Customer(models.Model):
     cmrPhone = models.CharField(max_length=20)
     cmrCode = models.CharField(max_length=255)
     contactID = models.ForeignKey(CustomerContact, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
 
 class FbStsCat(models.Model):
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     stsCatCol = models.CharField(max_length=255)
     stsCatDesc = models.CharField(max_length=255)
 
@@ -173,7 +202,7 @@ class BbMtrl(models.Model):
     mtrName = models.CharField(max_length=255)
     mtrCat = models.CharField(max_length=255)
     mtrPackaging = models.CharField(max_length=255)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
 
 class BaTrip(models.Model):
@@ -189,7 +218,7 @@ class BaTrip(models.Model):
     trpSltr = models.IntegerField()
     trpTltr = models.IntegerField()
     trpUltr = models.IntegerField()
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return self.trpRouteName
@@ -197,7 +226,7 @@ class BaTrip(models.Model):
 
 class DjboutiPass(models.Model):
     DrvId = models.ForeignKey(Driver, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     drvDjiboutiPassNo = models.CharField(max_length=255)
     drvDjiboutiPIssuanceDate = models.DateField()
     drvDjiboutiPExpDate = models.DateField()
@@ -218,7 +247,7 @@ class AaFleetNo(models.Model):
     fltAxleNo = models.IntegerField()
     fltEngineType = models.CharField(max_length=255)
     fltEnginePower = models.IntegerField()
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return self.fltFleetNo
@@ -228,7 +257,7 @@ class AbTruck(models.Model):
     FltId = models.ForeignKey(AaFleetNo, on_delete=models.CASCADE)
     DrvId = models.ForeignKey(Driver, on_delete=models.CASCADE, null=True)
     TrlId = models.ForeignKey(Trailer, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     trkActive = models.BooleanField()
 
     def __str__(self):
@@ -246,7 +275,7 @@ class CaFO(models.Model):
     MtrId = models.ForeignKey(BbMtrl, on_delete=models.CASCADE)
     CustomerID = models.ForeignKey(Customer, on_delete=models.CASCADE)
     ShipmentCode = models.CharField(max_length=255)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     foNo = models.CharField(max_length=25)
     foDate = models.DateField()
     foTime = models.TimeField()
@@ -276,7 +305,7 @@ class CaFO(models.Model):
 
 class DaFuel(models.Model):
     FoId = models.ForeignKey(CaFO, on_delete=models.CASCADE, null=True)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     fuelStationID = models.IntegerField()
     fuelPmtType = models.CharField(max_length=255)
     fuelCapNo = models.CharField(max_length=255)
@@ -288,7 +317,7 @@ class DaFuel(models.Model):
 
 class FaSts(models.Model):
     TrkId = models.ForeignKey(AbTruck, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     stsDate = models.DateField()
     stsCatOne = models.CharField(max_length=255)
     stsCatTwo = models.CharField(max_length=255)
@@ -301,7 +330,7 @@ class FaSts(models.Model):
 class FltBolo(models.Model):
     FltId = models.ForeignKey(AaFleetNo, on_delete=models.CASCADE)
     TrkId = models.ForeignKey(AbTruck, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     FltBolo_no = models.CharField(max_length=255)
     FltBoloissuedate = models.DateField()
     FltBoloExpireDate = models.DateField()
@@ -311,7 +340,7 @@ class FltBolo(models.Model):
 class TRLBolo(models.Model):
     TrlId = models.ForeignKey(Trailer, on_delete=models.CASCADE)
     TrkId = models.ForeignKey(AbTruck, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     trlBolo_no = models.CharField(max_length=255)
     trlBoloissuedate = models.DateField()
     trlBoloExpireDate = models.DateField()
@@ -321,7 +350,7 @@ class TRLBolo(models.Model):
 class FltComesa(models.Model):
     FltId = models.ForeignKey(AaFleetNo, on_delete=models.CASCADE)
     TrkId = models.ForeignKey(AbTruck, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     FltComesaNo = models.CharField(max_length=255)
     FltComesaYellowNo = models.CharField(max_length=255)
     FltComesaIssuanceDate = models.DateField()
@@ -333,7 +362,7 @@ class FltComesa(models.Model):
 class TRLComesa(models.Model):
     TrlId = models.ForeignKey(Trailer, on_delete=models.CASCADE)
     TrkId = models.ForeignKey(AbTruck, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     trlComesaNo = models.CharField(max_length=255)
     trlComesaYellowNo = models.CharField(max_length=255)
     trlComesaIssuanceDate = models.DateField()
@@ -345,7 +374,7 @@ class TRLComesa(models.Model):
 class FltInsurance(models.Model):
     FltId = models.ForeignKey(AaFleetNo, on_delete=models.CASCADE)
     TrkId = models.ForeignKey(AbTruck, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     FltInsRegistrationNo = models.CharField(max_length=255)
     FltInsIssuanceDate = models.DateField()
     FltInsExpireDate = models.DateField()
@@ -356,7 +385,7 @@ class FltInsurance(models.Model):
 class TRLInsurance(models.Model):
     TrlId = models.ForeignKey(Trailer, on_delete=models.CASCADE)
     TrkId = models.ForeignKey(AbTruck, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     trlInsRegistrationNo = models.CharField(max_length=255)
     trlInsIssuanceDate = models.DateField()
     trlInsValidationDate = models.DateField()
@@ -367,7 +396,7 @@ class TRLInsurance(models.Model):
 class FltThirdParty(models.Model):
     FltId = models.ForeignKey(AaFleetNo, on_delete=models.CASCADE)
     TrkId = models.ForeignKey(AbTruck, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     FltThirdInsNo = models.CharField(max_length=255)
     FltThirdPolicyNo = models.CharField(max_length=255)
     FltThirdIssuanceDate = models.DateField()
@@ -378,7 +407,7 @@ class FltThirdParty(models.Model):
 class TRLThirdParty(models.Model):
     TrlId = models.ForeignKey(Trailer, on_delete=models.CASCADE)
     TrkId = models.ForeignKey(AbTruck, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     trlThirdInsNo = models.CharField(max_length=255)
     trlThirdPolicyNo = models.CharField(max_length=255)
     trlThirdIssuanceDate = models.DateField()
@@ -388,7 +417,7 @@ class TRLThirdParty(models.Model):
 
 class TyerNew(models.Model):
     TrkId = models.ForeignKey(AbTruck, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     NewTyerIssuNo = models.CharField(max_length=255)
     NewTyerDate = models.DateField()
     NewTyerKM = models.IntegerField()
@@ -402,7 +431,7 @@ class TyerNew(models.Model):
 class TyerReturn(models.Model):
     NewTyerID = models.ForeignKey(TyerNew, on_delete=models.CASCADE)
     TrkId = models.ForeignKey(AbTruck, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     ReturningIssuNo = models.CharField(max_length=255)
     RtrnTyerClosingDate = models.DateField()
     RtrnTyerClosingKM = models.IntegerField()
@@ -413,7 +442,7 @@ class TyerReturn(models.Model):
 
 class EaPerdiuem(models.Model):
     FoId = models.ForeignKey(CaFO, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     prdDate = models.DateField()
     prdNoDays = models.IntegerField()
     prdIsTaxable = models.CharField(max_length=255)
@@ -426,7 +455,7 @@ class EaPerdiuem(models.Model):
 
 class EbAdvance(models.Model):
     FoId = models.ForeignKey(CaFO, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     advDate = models.DateField()
     advParking = models.DecimalField(max_digits=10, decimal_places=2)
     advDjiboEnter = models.DecimalField(max_digits=10, decimal_places=2)
@@ -442,7 +471,7 @@ class EbAdvance(models.Model):
 class EcSettlement(models.Model):
     FoId = models.ForeignKey(CaFO, on_delete=models.CASCADE)
     advID = models.ForeignKey(EbAdvance, on_delete=models.CASCADE)
-    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     stlmDate = models.DateField()
     stlmDjiboEnter = models.DecimalField(max_digits=10, decimal_places=2)
     stlmDjiboParking = models.DecimalField(max_digits=10, decimal_places=2)

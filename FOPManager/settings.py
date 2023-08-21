@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-y%@nijt5&g)(9^1l+z*fpp-b6h%0@dwgbygh)920(i)_)ruw&6
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*', 'http://localhost:5173/']
 
 
 # Application definition
@@ -42,9 +42,12 @@ INSTALLED_APPS = [
     'djoser',
     'rest_framework_simplejwt',
     'drf_yasg',
+    'corsheaders',
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -53,6 +56,9 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = ["http://localhost:5173", ]
+CORS_ALLOW_HEADERS = ['*']
 
 ROOT_URLCONF = 'FOPManager.urls'
 
@@ -160,3 +166,30 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# settings.py
+LOGGING = {
+    'version': 1,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': 'user_actions.log',  # Specify the log file name
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}

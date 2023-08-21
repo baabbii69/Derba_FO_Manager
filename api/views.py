@@ -1,6 +1,9 @@
+import logging
+
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
@@ -10,11 +13,14 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.views import APIView
+from django.contrib.auth.decorators import login_required
+# from .user_activity import log_user_activity
 
 
 class DriverViewSet(ModelViewSet):
     queryset = Driver.objects.all()
     serializer_class = DriverSerializer
+    # permission_classes = IsAuthenticated
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
