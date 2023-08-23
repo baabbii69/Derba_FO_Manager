@@ -65,6 +65,10 @@ from .models import *
 @receiver(post_delete, sender=EbAdvance)
 @receiver(post_save, sender=EcSettlement)
 @receiver(post_delete, sender=EcSettlement)
+@receiver(post_save, sender=InfractionType)
+@receiver(post_delete, sender=InfractionType)
+@receiver(post_save, sender=Infraction)
+@receiver(post_delete, sender=Infraction)
 def log_user_action(sender, instance, **kwargs):
     user = instance.fkUserId if hasattr(instance, 'fkUserId') else instance.driverID.user
 
