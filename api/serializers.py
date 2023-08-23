@@ -9,13 +9,14 @@ User = get_user_model()
 class UserCreateSerializer(UserCreateSerializer):
     class Meta(UserCreateSerializer.Meta):
         model = User
-        fields = ('id', 'username', 'password', 'first_name', 'last_name')
+        fields = ['id', 'username', 'password', 'first_name', 'last_name']
 
 
 class DrvEmergencyContactSerializer(serializers.ModelSerializer):
     class Meta:
         model = DrvEmergecyContact
         fields = '__all__'
+
 
 class TrailerSerializer(serializers.ModelSerializer):
     class Meta:
@@ -77,6 +78,24 @@ class CustomerSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class InfractionTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InfractionType
+        fields = '__all__'
+
+
+class InfractionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Infraction
+        fields = '__all__'
+
+
+class UserActionLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserActionLog
+        fields = '__all__'
+
+
 class FbStsCatSerializer(serializers.ModelSerializer):
     class Meta:
         model = FbStsCat
@@ -116,6 +135,25 @@ class AaFleetNoSerializer(serializers.ModelSerializer):
 class DbFuelStnSerializer(serializers.ModelSerializer):
     class Meta:
         model = DbFuelStn
+        fields = '__all__'
+
+
+class DrvDjiboutiPassSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DjboutiPass
+        fields = '__all__'
+
+
+class MtrlCatSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = MtrCat
+        fields = '__all__'
+
+
+class ConditionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Condition
         fields = '__all__'
 
 

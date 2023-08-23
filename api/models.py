@@ -79,6 +79,9 @@ class UserActionLog(models.Model):
     action = models.CharField(max_length=255)
     timestamp = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"{self.user} - {self.action}"
+
 
 class Driver(models.Model):
     driver_name = models.CharField(max_length=255)
@@ -107,7 +110,7 @@ class DrvEmergecyContact(models.Model):
     fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
-        return self.drvContactName
+        return f"Driver: {self.driverID} - Emergency Contact: {self.drvContactName}"
 
 
 class DrvLicence(models.Model):
@@ -120,7 +123,7 @@ class DrvLicence(models.Model):
     fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
-        return self.drvLicenceNumber
+        return f"Driver: {self.driverID} - Licence Number: {self.drvLicenceNumber}"
 
 
 class DrvLeave(models.Model):
@@ -136,7 +139,7 @@ class DrvLeave(models.Model):
     fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
-        return self.drvLeaveType
+        return f"Driver: {self.driverID} - Leave Type: {self.drvLeaveType}"
 
 
 class Condition(models.Model):
@@ -172,6 +175,9 @@ class DrvPassport(models.Model):
     drvPassportActiveStatus = models.BooleanField()
     fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
+    def __str__(self):
+        return f"Driver: {self.DrvId} - Passport Number: {self.drvPassportNo}"
+
 
 class CustomerContact(models.Model):
     cntName = models.CharField(max_length=255)
@@ -191,18 +197,35 @@ class Customer(models.Model):
     contactID = models.ForeignKey(CustomerContact, on_delete=models.CASCADE)
     fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
+    def __str__(self):
+        return f'{self.cmrName} - Code: {self.cmrCode}'
+
 
 class FbStsCat(models.Model):
     fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     stsCatCol = models.CharField(max_length=255)
     stsCatDesc = models.CharField(max_length=255)
 
+    def __str__(self):
+        return self.stsCatCol
+
+
+class MtrCat(models.Model):
+    UserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    mtrCatCol = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.mtrCatCol
+
 
 class BbMtrl(models.Model):
     mtrName = models.CharField(max_length=255)
-    mtrCat = models.CharField(max_length=255)
+    mtrCat = models.ForeignKey(MtrCat, on_delete=models.CASCADE)
     mtrPackaging = models.CharField(max_length=255)
     fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.mtrName} - {self.mtrCat}'
 
 
 class BaTrip(models.Model):
@@ -221,7 +244,7 @@ class BaTrip(models.Model):
     fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
-        return self.trpRouteName
+        return f'{self.trpRouteName} - Distance: {self.trpDistanceKm} km'
 
 
 class DjboutiPass(models.Model):
@@ -231,6 +254,9 @@ class DjboutiPass(models.Model):
     drvDjiboutiPIssuanceDate = models.DateField()
     drvDjiboutiPExpDate = models.DateField()
     drvDjiboutiPActiveStatus = models.BooleanField()
+
+    def __str__(self):
+        return f"Driver: {self.DrvId} - Djibouti Pass Number: {self.drvDjiboutiPassNo}"
 
 
 class AaFleetNo(models.Model):
@@ -250,7 +276,7 @@ class AaFleetNo(models.Model):
     fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
-        return self.fltFleetNo
+        return f'{self.fltFleetNo} - Plate No: {self.fltPlateNo}'
 
 
 class AbTruck(models.Model):
@@ -267,6 +293,9 @@ class AbTruck(models.Model):
 class DbFuelStn(models.Model):
     fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     stnName = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.stnName
 
 
 class CaFO(models.Model):
@@ -314,6 +343,9 @@ class DaFuel(models.Model):
     fuelCapRmk = models.TextField()
     fuelCashRmk = models.TextField()
 
+    def __str__(self):
+        return f'{self.FoId} - {self.fuelStationID}'
+
 
 class FaSts(models.Model):
     TrkId = models.ForeignKey(AbTruck, on_delete=models.CASCADE)
@@ -336,6 +368,9 @@ class FltBolo(models.Model):
     FltBoloExpireDate = models.DateField()
     FltBoloActive = models.BooleanField()
 
+    def __str__(self):
+        return f'{self.FltBolo_no} - Fleet: {self.FltId}'
+
 
 class TRLBolo(models.Model):
     TrlId = models.ForeignKey(Trailer, on_delete=models.CASCADE)
@@ -345,6 +380,9 @@ class TRLBolo(models.Model):
     trlBoloissuedate = models.DateField()
     trlBoloExpireDate = models.DateField()
     trlBoloActive = models.BooleanField()
+
+    def __str__(self):
+        return f'{self.trlBolo_no} - Trailer: {self.TrlId}'
 
 
 class FltComesa(models.Model):
@@ -358,6 +396,9 @@ class FltComesa(models.Model):
     FltComesaCountry = models.CharField(max_length=255)
     FltComesaActive = models.BooleanField()
 
+    def __str__(self):
+        return f'{self.FltComesaNo} - Fleet: {self.FltId}'
+
 
 class TRLComesa(models.Model):
     TrlId = models.ForeignKey(Trailer, on_delete=models.CASCADE)
@@ -370,6 +411,9 @@ class TRLComesa(models.Model):
     trlComesaCountry = models.CharField(max_length=255)
     trlComesaActive = models.BooleanField()
 
+    def __str__(self):
+        return f'{self.trlComesaNo} - Trailer: {self.TrlId}'
+
 
 class FltInsurance(models.Model):
     FltId = models.ForeignKey(AaFleetNo, on_delete=models.CASCADE)
@@ -380,6 +424,9 @@ class FltInsurance(models.Model):
     FltInsExpireDate = models.DateField()
     FltInsPolicyNo = models.CharField(max_length=255)
     FltInscActive = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f'{self.FltInsRegistrationNo} - Fleet: {self.FltId}'
 
 
 class TRLInsurance(models.Model):
@@ -392,6 +439,9 @@ class TRLInsurance(models.Model):
     trlInsPolicyNo = models.CharField(max_length=255)
     trlInscActive = models.CharField(max_length=255)
 
+    def __str__(self):
+        return f'{self.trlInsRegistrationNo} - Trailer: {self.TrlId}'
+
 
 class FltThirdParty(models.Model):
     FltId = models.ForeignKey(AaFleetNo, on_delete=models.CASCADE)
@@ -403,6 +453,9 @@ class FltThirdParty(models.Model):
     FltThirdExpireDate = models.DateField()
     FltThirdActive = models.CharField(max_length=255)
 
+    def __str__(self):
+        return f'{self.FltThirdInsNo} - Fleet: {self.FltId}'
+
 
 class TRLThirdParty(models.Model):
     TrlId = models.ForeignKey(Trailer, on_delete=models.CASCADE)
@@ -413,6 +466,9 @@ class TRLThirdParty(models.Model):
     trlThirdIssuanceDate = models.DateField()
     trlThirdValidationDate = models.DateField()
     trlThirdActive = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f'{self.trlThirdInsNo} - Trailer: {self.TrlId}'
 
 
 class TyerNew(models.Model):
@@ -427,6 +483,9 @@ class TyerNew(models.Model):
     NewTyerActive = models.BooleanField()
     NewTyerTableLock = models.CharField(max_length=255)
 
+    def __str__(self):
+        return f'{self.NewTyerIssuNo} - Truck: {self.TrkId}'
+
 
 class TyerReturn(models.Model):
     NewTyerID = models.ForeignKey(TyerNew, on_delete=models.CASCADE)
@@ -438,6 +497,9 @@ class TyerReturn(models.Model):
     TyerClosingRemark = models.TextField()
     RtrnTyerActive = models.CharField(max_length=255)
     RtrnTyerTableLock = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f'{self.ReturningIssuNo} - Truck: {self.TrkId}'
 
 
 class EaPerdiuem(models.Model):
@@ -451,6 +513,9 @@ class EaPerdiuem(models.Model):
     prdDeduct = models.DecimalField(max_digits=10, decimal_places=2)
     prdNetPmt = models.DecimalField(max_digits=10, decimal_places=2)
     prdRemark = models.TextField()
+
+    def __str__(self):
+        return f'{self.FoId} - {self.prdDate}'
 
 
 class EbAdvance(models.Model):
@@ -466,6 +531,9 @@ class EbAdvance(models.Model):
     advOther = models.DecimalField(max_digits=10, decimal_places=2)
     advTotalAdv = models.DecimalField(max_digits=10, decimal_places=2)
     advRemark = models.TextField()
+
+    def __str__(self):
+        return f'{self.FoId} - {self.advDate}'
 
 
 class EcSettlement(models.Model):
@@ -488,3 +556,26 @@ class EcSettlement(models.Model):
     stlmFinalFundToCompany = models.DecimalField(max_digits=10, decimal_places=2)
     stlmWorkFundRemark = models.TextField()
     stlmOtherExpenseRemark = models.TextField()
+
+    def __str__(self):
+        return f'{self.FoId} - {self.stlmDate}'
+
+
+class InfractionType(models.Model):
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    infractionType = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.infractionType
+
+
+class Infraction(models.Model):
+    drvId = models.ForeignKey(Driver, on_delete=models.CASCADE)
+    fkUserId = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    infractionType = models.ForeignKey(InfractionType, on_delete=models.CASCADE)
+    infractionDate = models.DateField()
+    infractionLocation = models.CharField(max_length=255)
+    infractionRemark = models.TextField()
+
+    def __str__(self):
+        return f'{self.infractionType} - Driver: {self.drvId}'

@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.schemas import coreapi
 from rest_framework.viewsets import ModelViewSet
 from .serializers import *
 from .models import *
@@ -15,6 +16,7 @@ from drf_yasg.utils import swagger_auto_schema
 from rest_framework.views import APIView
 from django.contrib.auth.decorators import login_required
 # from .user_activity import log_user_activity
+from rest_framework import filters
 
 
 class DriverViewSet(ModelViewSet):
@@ -25,7 +27,7 @@ class DriverViewSet(ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        serializer.save(fkUserId=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
@@ -44,11 +46,13 @@ class DriverViewSet(ModelViewSet):
 class DrvEmergecyContactViewSet(ModelViewSet):
     queryset = DrvEmergecyContact.objects.all()
     serializer_class = DrvEmergencyContactSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['driverID']
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        serializer.save(fkUserId=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
@@ -79,7 +83,7 @@ class DrvLicenceViewSet(ModelViewSet):
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        serializer.save(fkUserId=request.user)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -103,7 +107,7 @@ class DrvLeaveViewSet(ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        serializer.save(fkUserId=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
@@ -134,7 +138,7 @@ class DrvPassportViewSet(ModelViewSet):
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        serializer.save(fkUserId=request.user)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -155,6 +159,13 @@ class TrailerViewSet(ModelViewSet):
     queryset = Trailer.objects.all()
     serializer_class = TrailerSerializer
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        driver_id = self.request.query_params.get('driver')
+        if driver_id is not None:
+            queryset = queryset.filter(driver=driver_id)
+        return queryset
+
     def retrieve(self, request, pk=None):
         try:
             trailer = self.get_object()
@@ -166,7 +177,7 @@ class TrailerViewSet(ModelViewSet):
     def create(self, request):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(fkUserId=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -220,7 +231,7 @@ class FleetNoViewSet(ModelViewSet):
             if AaFleetNo.objects.filter(fltPlateNo=plt_id, fltFleetNo=flt_id).exists():
                 raise ValidationError("A Fleet with the same Plate Number and Fleet Number already exists.")
 
-            serializer.save()
+            serializer.save(fkUserId=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -250,6 +261,16 @@ class AbTruckViewSet(ModelViewSet):
     queryset = AbTruck.objects.all()
     serializer_class = AbTruckSerializer
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        fleet_id = self.request.query_params.get('FltId')
+        driver_id = self.request.query_params.get('DrvId')
+        if fleet_id is not None:
+            queryset = queryset.filter(FltId=fleet_id)
+        if driver_id is not None:
+            queryset = queryset.filter(DrvId=driver_id)
+        return queryset
+
     def retrieve(self, request, pk=None):
         if pk is not None:
             try:
@@ -270,12 +291,18 @@ class AbTruckViewSet(ModelViewSet):
             trl_id = serializer.validated_data['TrlId']
             drv_id = serializer.validated_data['DrvId']
             flt_id = serializer.validated_data['FltId']
-
+            user = User.objects.get(id=request.user.id)
+            serializer.validated_data['UserId'] = user
             # Check if a Truck with the same TrlId, DrvId, and FltId already exists
             if AbTruck.objects.filter(TrlId=trl_id, DrvId=drv_id, FltId=flt_id).exists():
                 raise ValidationError("A Truck with the same TrlId, DrvId, and FltId already exists.")
 
-            serializer.save()
+                # set active status of the truck to false for previous records if any
+            if (AbTruck.objects.filter(TrlId=trl_id, FltId=flt_id).exists() and serializer.validated_data['trkActive']):
+                AbTruck.objects.filter(TrlId=trl_id, FltId=flt_id).update(trkActive=False)
+
+            serializer.save(fkUserId=request.user)
+            print(AbTruck.objects.filter(TrlId=trl_id, FltId=flt_id))
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -301,7 +328,7 @@ class BaTripViewSet(ModelViewSet):
     def create(self, request):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(UserId=request.user.id)
+            serializer.save(fkUserId=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -348,7 +375,7 @@ class EbAdvanceViewSet(ModelViewSet):
     def create(self, request):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(UserId=request.user.id)
+            serializer.save(fkUserId=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -383,7 +410,7 @@ class CaFOViewSet(ModelViewSet):
     def create(self, request):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(UserId=request.user.id)
+            serializer.save(fkUserId=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -453,7 +480,7 @@ class DaFuelViewSet(ModelViewSet):
                 return Response({'error': 'FO not found'}, status=status.HTTP_404_NOT_FOUND)
 
             if not FuelLock:
-                serializer.save(UserId=request.user.id)
+                serializer.save(fkUserId=request.user)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response({'error': 'Someone is Working Fuel for this FO'}, status=status.HTTP_409_CONFLICT)
 
@@ -500,7 +527,7 @@ class EaPerdiuemViewSet(ModelViewSet):
 
             if fuel:
                 if not PerdiumLock:
-                    serializer.save(UserId=request.user.id)
+                    serializer.save(fkUserId=request.user)
                     return Response(serializer.data, status=status.HTTP_201_CREATED)
                 return Response({'error': 'Someone is Working Fuel for this FO'}, status=status.HTTP_409_CONFLICT)
             else:
@@ -513,52 +540,294 @@ class FaStsViewSet(ModelViewSet):
     queryset = FaSts.objects.all()
     serializer_class = FaStsSerializer
 
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class FltBoloViewSet(ModelViewSet):
     queryset = FltBolo.objects.all()
     serializer_class = FltBoloSerializer
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class TRLBoloViewSet(ModelViewSet):
     queryset = TRLBolo.objects.all()
     serializer_class = TRLBoloSerializer
 
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class FltComesaViewSet(ModelViewSet):
     queryset = FltComesa.objects.all()
     serializer_class = FltComesaSerializer
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class TRLComesaViewSet(ModelViewSet):
     queryset = TRLComesa.objects.all()
     serializer_class = TRLComesaSerializer
 
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class FltInsuranceViewSet(ModelViewSet):
     queryset = FltInsurance.objects.all()
     serializer_class = FltInsuranceSerializer
 
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class TRLInsuranceViewSet(ModelViewSet):
     queryset = TRLInsurance.objects.all()
     serializer_class = TRLInsuranceSerializer
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class FltThirdPartyViewSet(ModelViewSet):
     queryset = FltThirdParty.objects.all()
     serializer_class = FltThirdPartySerializer
 
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class TRLThirdPartyViewSet(ModelViewSet):
     queryset = TRLThirdParty.objects.all()
     serializer_class = TRLThirdPartySerializer
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class TyerNewViewSet(ModelViewSet):
     queryset = TyerNew.objects.all()
     serializer_class = TyerNewSerializer
 
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class TyerReturnViewSet(ModelViewSet):
     queryset = TyerReturn.objects.all()
     serializer_class = TyerReturnSerializer
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CustomerViewSet(ModelViewSet):
+    queryset = Customer.objects.all()
+    serializer_class = CustomerSerializer
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, pk=None):
+        customer = self.get_object()
+        serializer = self.get_serializer(customer, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save(UserId=User.objects.get(id=request.user.id))
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CustomerContactViewSet(ModelViewSet):
+    queryset = CustomerContact.objects.all()
+    serializer_class = CustomerContactSerializer
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, pk=None):
+        customer = self.get_object()
+        serializer = self.get_serializer(customer, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BbMtrlViewSet(ModelViewSet):
+    queryset = BbMtrl.objects.all()
+    serializer_class = BbMtrlSerializer
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BcMtrlViewSet(ModelViewSet):
+    queryset = MtrCat.objects.all()
+    serializer_class = MtrlCatSerializer
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DrvDjiboutiViewSet(ModelViewSet):
+    queryset = DjboutiPass.objects.all()
+    serializer_class = DrvDjiboutiPassSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        driver_id = self.request.query_params.get('DrvId')
+        if driver_id is not None:
+            queryset = queryset.filter(DrvId=driver_id)
+        return queryset
+
+    def retrieve(self, request, pk=None):
+        try:
+            djbouti_pass = self.get_object()
+            serializer = self.get_serializer(djbouti_pass)
+            return Response(serializer.data)
+        except DjboutiPass.DoesNotExist:
+            return Response({'error: Djibouti Passport not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            drv_id = serializer.validated_data['DrvId']
+            # Check if a Truck with the same TrlId, DrvId, and FltId already exists
+            if DjboutiPass.objects.filter(DrvId=drv_id).exists():
+                raise ValidationError("A Djibouti Passport with the same Driver ID already exists.")
+
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, pk=None):
+        try:
+            djbouti_pass = self.get_object()
+        except DjboutiPass.DoesNotExist:
+            return Response({'error': 'Djibouti Passport not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(djbouti_pass, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ConditionViewSet(ModelViewSet):
+    queryset = Condition.objects.all()
+    serializer_class = ConditionSerializer
+    # permission_classes = IsAuthenticated
+
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserActionLogView(ModelViewSet):
+    queryset = UserActionLog.objects.all()
+    serializer_class = UserActionLogSerializer
+
+
+class InfractionTypeViewSet(ModelViewSet):
+    queryset = InfractionType.objects.all()
+    serializer_class = InfractionTypeSerializer
+    # permission_classes = IsAuthenticated
+
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+class InfractionViewSet(ModelViewSet):
+    queryset = Infraction.objects.all()
+    serializer_class = InfractionSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(fkUserId=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
